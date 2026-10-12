@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7319eab7e4f520147b624b49623840f2, type: 3}
+  m_Name: DungeonSettingsSO
+  m_EditorClassIdentifier: Assembly-CSharp::DungeonSettingsSO
+  dungeonName: Dungeon
+  normalRooms:
+  - room: {fileID: 11400000, guid: e2f5ed73c6c876945bb740d7e0498230, type: 2}
+    copies: 18
+  gateRooms:
+  - room: {fileID: 11400000, guid: 21744b119f8b62d44a3d63f872e9681d, type: 2}
+    copies: 6
+  startRoom:
+    room: {fileID: 11400000, guid: a87e31f52c5d8e34ebd95993717b7080, type: 2}
+    copies: 1
+  endRoom:
+    room: {fileID: 11400000, guid: faef0ac2dbe16344ab1a972458a74df5, type: 2}
+    copies: 1
+  cap: {fileID: 302846944749155063, guid: 3b9f17c2a05f40e4ebeffd0188900cdc, type: 3}
