@@ -17,5 +17,5 @@ public class RoomScript : MonoBehaviour
     public Collider colliderCheck;
     public bool isGateRoom;
     public GameObject Key;
-    public GameObject Gates;
+    public GameObject[] Gates;
 }

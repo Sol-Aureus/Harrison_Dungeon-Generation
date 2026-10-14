@@ -236,7 +236,6 @@ MonoBehaviour:
   walkSpeed: 8
   crouchedSpeed: 4
   sprintSpeed: 16
-  gravity: 1
   walkMat: {fileID: 2100000, guid: bd0109bdd986a65458fcd324f13e8f8d, type: 2}
   crouchMat: {fileID: 2100000, guid: 4e8c08d33fb6ed142b536f76531f1315, type: 2}
   sprintMat: {fileID: 2100000, guid: 217507a22a36ac748bb9ec954d9de06e, type: 2}

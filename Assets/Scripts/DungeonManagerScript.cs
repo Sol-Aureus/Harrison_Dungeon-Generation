@@ -26,9 +26,10 @@ public class DungeonManagerScript : MonoBehaviour
 
     private List<DungeonRoomSO> deck = new();
     private List<RoomExits> availableExits = new();
-
-    // Track occupied grid positions (x, y, z)
     private HashSet<Vector3Int> occupiedGridPositions = new();
+
+    // Track instantiated objects so we can clean up cleanly if a retry is required
+    private List<GameObject> spawnedObjects = new();
 
     void Start()
     {
@@ -36,6 +37,24 @@ public class DungeonManagerScript : MonoBehaviour
     }
 
     public void GenerateDungeon()
+    {
+        int maxRetries = 100;
+        for (int retry = 0; retry < maxRetries; retry++)
+        {
+            if (TryGenerateDungeon())
+            {
+                Debug.Log($"Dungeon successfully generated on attempt {retry + 1}.");
+                return;
+            }
+
+            // Clean up failed layout and retry with a new seed/shuffle
+            ClearDungeon();
+        }
+
+        Debug.LogError("Failed to generate dungeon within max retries. Check room door keywords or grid dimensions!");
+    }
+
+    private bool TryGenerateDungeon()
     {
         occupiedGridPositions.Clear();
         availableExits.Clear();
@@ -52,7 +71,7 @@ public class DungeonManagerScript : MonoBehaviour
 
         DungeonRoomSO newRoom;
         RoomScript currentRoom;
-        bool gateRoom = false;
+        bool gateRoom = false; // false = next gate room is Key, true = next gate room is Gate
 
         RestockDeck();
         ShuffleDeck();
@@ -60,8 +79,8 @@ public class DungeonManagerScript : MonoBehaviour
         // Spawn Start Room
         newRoom = settings.startRoom.room;
         currentRoom = Instantiate(newRoom.prefab, Vector3.zero, Quaternion.identity);
+        spawnedObjects.Add(currentRoom.gameObject);
 
-        // Mark start room position as occupied
         occupiedGridPositions.Add(WorldToGridPos(currentRoom.transform.position));
 
         for (int n = 0; n < currentRoom.doors.Length; n++)
@@ -74,7 +93,7 @@ public class DungeonManagerScript : MonoBehaviour
 
         int placedRooms = 1;
         int attempts = 0;
-        int maxAttempts = roomCount * 5;
+        int maxAttempts = roomCount * 10;
 
         while (placedRooms < roomCount && attempts < maxAttempts)
         {
@@ -97,12 +116,23 @@ public class DungeonManagerScript : MonoBehaviour
             }
         }
 
+        // Validation 1: All rooms placed?
+        // Validation 2: Are all Keys paired with Gates? (gateRoom must be false)
+        if (placedRooms < roomCount || gateRoom)
+        {
+            return false;
+        }
+
         // Spawn End Room
         newRoom = settings.endRoom.room;
-        SpawnRoom(newRoom, ref currentRoom, ref gateRoom);
+        if (!SpawnRoom(newRoom, ref currentRoom, ref gateRoom))
+        {
+            return false;
+        }
 
-        // Cap off all remaining unused exits
+        // Cap remaining exits
         CloseOffExits();
+        return true;
     }
 
     bool SpawnRoom(DungeonRoomSO newRoom, ref RoomScript currentRoom, ref bool gateRoom)
@@ -132,7 +162,7 @@ public class DungeonManagerScript : MonoBehaviour
 
         for (int exitIndex = 0; exitIndex < newRoomExits.Count; exitIndex++)
         {
-            var exit = newRoomExits[exitIndex];
+            RoomExits exit = newRoomExits[exitIndex];
 
             List<RoomExits> matchingExits = availableExits.FindAll(x => exit.canConnectToKeywords.Contains(x.keyword));
 
@@ -147,34 +177,47 @@ public class DungeonManagerScript : MonoBehaviour
                 Vector3 positionOffset = currentRoomExit.edge.position - selectedExit.position;
                 currentRoom.transform.position += positionOffset;
 
-                // --- Position-Based Collision Check ---
+                // Position Collision Check
                 Vector3Int targetGridPos = WorldToGridPos(currentRoom.transform.position);
 
                 if (occupiedGridPositions.Contains(targetGridPos))
                 {
-                    // Cell already occupied by another room
                     continue;
                 }
 
-                // Connection verified: mark cell occupied
                 occupiedGridPositions.Add(targetGridPos);
-
-                Debug.Log("Connecting " + exit.keyword + " to " + currentRoomExit.keyword);
 
                 newRoomExits.RemoveAt(exitIndex);
                 availableExits.Remove(currentRoomExit);
 
                 if (currentRoom.isGateRoom)
                 {
-                    currentRoom.Key.SetActive(!gateRoom);
-                    currentRoom.Gates.SetActive(gateRoom);
-                    gateRoom = !gateRoom;
-
-                    if (!gateRoom)
+                    if (gateRoom)
                     {
-                        // Seal off older branches to focus linear generation from the gate
+                        Debug.Log("Locking gate room door: " + exit.keyword);
+                        switch (exit.keyword)
+                        {
+                            case "RED":
+                                currentRoom.Gates[0].transform.gameObject.SetActive(true);
+                                break;
+                            case "GREEN":
+                                currentRoom.Gates[1].transform.gameObject.SetActive(true);
+                                break;
+                            case "BLUE":
+                                currentRoom.Gates[2].transform.gameObject.SetActive(true);
+                                break;
+                            case "YELLOW":
+                                currentRoom.Gates[3].transform.gameObject.SetActive(true);
+                                break;
+                        }
                         CloseOffExits();
                     }
+                    else
+                    {
+                        currentRoom.Key.SetActive(true);
+                    }
+
+                    gateRoom = !gateRoom;
                 }
 
                 availableExits.AddRange(newRoomExits);
@@ -187,13 +230,27 @@ public class DungeonManagerScript : MonoBehaviour
                     availableExits[rand] = temp;
                 }
 
+                spawnedObjects.Add(currentRoom.gameObject);
                 return true;
             }
         }
 
-        Debug.Log("Couldn't find an available exit for the spawned room.");
         Destroy(currentRoom.gameObject);
         return false;
+    }
+
+    private void ClearDungeon()
+    {
+        foreach (GameObject obj in spawnedObjects)
+        {
+            if (obj != null)
+            {
+                DestroyImmediate(obj);
+            }
+        }
+        spawnedObjects.Clear();
+        occupiedGridPositions.Clear();
+        availableExits.Clear();
     }
 
     private Vector3Int WorldToGridPos(Vector3 worldPos)
@@ -245,6 +302,7 @@ public class DungeonManagerScript : MonoBehaviour
             Transform cap = Instantiate(settings.cap);
             cap.position = exit.edge.position;
             cap.forward = -exit.edge.forward;
+            spawnedObjects.Add(cap.gameObject);
         }
         availableExits.Clear();
     }
